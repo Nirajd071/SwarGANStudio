@@ -1,0 +1,150 @@
+📌 Prompt for Building SwarGAN: Singing Voice Style Transfer Using Deep Learning
+
+I want to build a complete project called SwarGAN, which performs singing voice style transfer (convert the singing voice of a source singer into the timbre/style of a target singer, while preserving lyrics & melody).
+
+Please explain and guide step by step, without skipping anything — from basic requirements to final deployment. Break everything into clear stages, include technical details, libraries, and possible variations.
+
+1. Project Requirements
+
+Objective: Singing voice style transfer using deep learning.
+
+Environment: Python, PyTorch (preferred), with GPU support.
+
+Libraries needed: torch, torchaudio, librosa, numpy, scipy, soundfile, pyworld, crepe (or pYIN), matplotlib, pandas. For vocoder: HiFi-GAN or ParallelWaveGAN repos. For UI: Streamlit.
+
+2. Dataset Preparation
+
+Suggest singing datasets (parallel & non-parallel). Examples: NUS-48E, MIR-1K, karaoke stems.
+
+Explain parallel vs non-parallel training and why non-parallel is practical for singing.
+
+Detail steps to collect/clean audio (22.05kHz or 24kHz sampling, mono, normalized).
+
+Show how to trim silence, normalize loudness (LUFS/RMS), and split into frames.
+
+3. Feature Extraction & Preprocessing
+
+Extract mel-spectrograms (80 mel bins, hop=256, win=1024, FFT=1024).
+
+Extract F0 (pitch) using pyworld (Harvest or Dio), log-transform, normalize per speaker.
+
+Extract aperiodicity and spectral envelope if using WORLD vocoder pipeline.
+
+Save features for reuse (npy or pickle format).
+
+Show Python example code with librosa + pyworld.
+
+4. Baseline Model (AutoVC / CycleGAN-VC)
+
+Introduce AutoVC (autoencoder with bottleneck for content-style disentanglement).
+
+Alternative: CycleGAN-VC2 for non-parallel mapping.
+
+Show simple architecture diagram and explain input/output shapes.
+
+Losses: L1 mel loss, cycle-consistency loss, identity loss, optional adversarial loss.
+
+Training loop sketch in PyTorch.
+
+5. Advanced Model: SwarGAN Architecture
+
+Components:
+
+Content encoder (extracts phonetic/musical content).
+
+Style encoder (extracts singer timbre embedding, or use pre-trained d-vector / ECAPA-TDNN).
+
+Pitch branch (explicit F0 conditioning or F0 conversion).
+
+Decoder/generator (mel synthesis with U-Net or Transformer blocks).
+
+Discriminator(s) (multi-scale mel discriminators for adversarial training).
+
+Vocoder (HiFi-GAN for mel→waveform conversion).
+
+Loss functions:
+
+L1/L2 reconstruction loss on mel.
+
+Adversarial loss (hinge or LSGAN).
+
+Cycle consistency loss (for non-parallel training).
+
+Identity loss (preserve timbre if source==target).
+
+Pitch loss (ensure output F0 matches intended).
+
+Speaker classification loss (generated voice should be recognized as target).
+
+Explain training procedure (generator-discriminator alternation, learning rates, optimizers, gradient clipping, early stopping).
+
+6. Vocoder Integration
+
+Choose HiFi-GAN or ParallelWaveGAN for natural singing output.
+
+Pretrain vocoder on speech dataset, then fine-tune on singing data for wide pitch coverage.
+
+Show how to generate waveform from mel spectrograms using vocoder.
+
+7. Evaluation Metrics
+
+Objective:
+
+Mel Cepstral Distortion (MCD).
+
+F0 RMSE, correlation.
+
+Speaker verification metrics (EER, cosine similarity).
+
+ASR-based intelligibility metrics (CER/WER).
+
+Subjective:
+
+MOS (Mean Opinion Score) tests for naturalness.
+
+ABX tests for similarity.
+
+Show how to run small-scale listening tests.
+
+8. Deployment & Demo
+
+Build a Streamlit UI:
+
+Upload a source singing clip.
+
+Choose a target singer (from available embeddings).
+
+Convert and play back generated output.
+
+Optionally add pitch shift controls (style + melody variation).
+
+Export to a simple web demo.
+
+9. Implementation Roadmap (Milestones)
+
+Dataset collection + preprocessing (mel, F0).
+
+Train baseline AutoVC → get MVP results.
+
+Upgrade to SwarGAN architecture (content+style+F0 disentanglement + GAN).
+
+Train/fine-tune HiFi-GAN vocoder on singing.
+
+Evaluate with objective + subjective metrics.
+
+Build Streamlit demo for final showcase.
+
+10. Practical Tips
+
+Always model F0 explicitly — singing is pitch-sensitive.
+
+Fine-tune vocoder on singing — speech-trained vocoder may fail at extreme pitches.
+
+Use cycle/identity losses to stabilize non-parallel training.
+
+Save intermediate features & checkpoints for reproducibility.
+
+Monitor generated samples frequently — rely on listening, not just metrics.
+
+⚡ Output requirement:
+Explain and expand each step in detail, add diagrams (fig) where helpful, provide pseudocode or PyTorch snippets, and give real dataset/vocoder repo references. Don’t skip any details — treat it like a research-to-production guide for building SwarGAN from scratch.
