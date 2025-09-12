@@ -332,6 +332,51 @@ elif page == "Audio Processing":
 elif page == "Model Training":
     st.header("🏋️ Model Training")
     
+    # Pre-trained models section
+    st.subheader("1. Check for Pre-Built / Pre-Trained Models")
+    
+    st.markdown("""
+    **AutoVC authors provide checkpoints** (but mostly trained on English datasets like VCTK).
+    
+    **HiFi-GAN and MelGAN** have pre-trained vocoders you can plug in for better audio quality.
+    
+    **For Hindi/Indian singing** → no direct pre-trained model yet, you'll need to fine-tune.
+    """)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info("👉 **Pre-trained AutoVC model** (English, VCTK dataset):\n🔗 [AutoVC GitHub - pretrained model](https://github.com/auspicious3000/autovc)")
+    
+    with col2:
+        st.info("👉 **Pre-trained HiFi-GAN vocoder**:\n🔗 [HiFi-GAN repository](https://github.com/jik876/hifi-gan)")
+    
+    # Demo section
+    st.subheader("2. Use Demo with Pre-Trained Models (Quick Win)")
+    
+    st.markdown("""
+    Instead of uploading training data → **download pretrained weights** and place in your project's `checkpoints/` or `models/` folder.
+    
+    Then the app can **directly convert voices without long training**.
+    
+    **Great for Phase 1 demo.**
+    """)
+    
+    # Custom training section
+    st.subheader("3. Train Your Own Model (If Needed)")
+    
+    st.markdown("""
+    - **Collect dataset** (MIR-1K, NUS-48E, or Hindi vocals via Voice Separation)
+    - **Upload multiple audio files** (WAV/MP3)
+    - **Configure parameters** below
+    - **Expect training** to take hours/days depending on dataset & GPU
+    """)
+    
+    # Recommendations
+    st.success("""
+    ✅ **Recommendation**: Start with **pre-trained checkpoints** → saves time, lets you test SwarGAN pipeline.
+    Later, fine-tune with Hindi vocals dataset for custom results.
+    """)
+    
     st.info("""
     **Training Requirements:**
     - Upload multiple audio files for training
