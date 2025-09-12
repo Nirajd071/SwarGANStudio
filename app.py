@@ -15,6 +15,7 @@ from audio_processor import AudioProcessor
 from trainer import Trainer, VoiceDataset, create_trainer
 from utils.feature_extractor import FeatureExtractor
 from utils.audio_utils import load_audio
+from utils.vocal_separator import VocalSeparator, is_supported_url, get_platform_name
 import config
 
 # Page configuration
@@ -28,6 +29,8 @@ st.set_page_config(
 # Initialize session state
 if 'audio_processor' not in st.session_state:
     st.session_state.audio_processor = AudioProcessor()
+if 'vocal_separator' not in st.session_state:
+    st.session_state.vocal_separator = VocalSeparator()
 if 'source_audio' not in st.session_state:
     st.session_state.source_audio = None
 if 'target_audio' not in st.session_state:
@@ -40,6 +43,8 @@ if 'converted_audio' not in st.session_state:
     st.session_state.converted_audio = None
 if 'training_history' not in st.session_state:
     st.session_state.training_history = None
+if 'separated_vocals' not in st.session_state:
+    st.session_state.separated_vocals = None
 
 # Main title and description
 st.title("🎵 SwarGAN - Singing Voice Style Transfer")
@@ -54,11 +59,219 @@ The system extracts content (melody/lyrics) from the source and applies the timb
 st.sidebar.title("Navigation")
 page = st.sidebar.selectbox(
     "Choose a page:",
-    ["Audio Processing", "Model Training", "Voice Conversion", "Analysis & Visualization", "Model Information"]
+    ["Voice Separation", "Audio Processing", "Model Training", "Voice Conversion", "Analysis & Visualization", "Model Information"]
 )
 
+# Voice Separation Page
+if page == "Voice Separation":
+    st.header("🎤 Voice Separation")
+    st.markdown("""
+    **Extract vocals from songs using AI-powered source separation**
+    
+    Upload audio files or provide URLs from YouTube, SoundCloud, etc. to separate vocals from instruments using advanced deep learning models.
+    """)
+    
+    # Method selection
+    separation_method = st.radio(
+        "Choose separation method:",
+        ["Upload Audio File", "Download from URL"],
+        key="separation_method"
+    )
+    
+    if separation_method == "Upload Audio File":
+        st.subheader("📁 Upload Audio File")
+        
+        uploaded_file = st.file_uploader(
+            "Upload audio file for vocal separation",
+            type=['wav', 'mp3', 'flac', 'ogg', 'm4a'],
+            key="vocal_sep_upload"
+        )
+        
+        if uploaded_file is not None:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.write("**Original Audio**")
+                st.audio(uploaded_file)
+                
+                # Display file info
+                st.write(f"**Filename:** {uploaded_file.name}")
+                st.write(f"**File size:** {len(uploaded_file.getvalue()) / 1024 / 1024:.2f} MB")
+            
+            with col2:
+                # Separation controls
+                st.write("**Separation Settings**")
+                model_choice = st.selectbox(
+                    "Demucs Model:",
+                    ["htdemucs", "htdemucs_ft", "htdemucs_6s"],
+                    help="htdemucs: Standard model, htdemucs_ft: Fine-tuned, htdemucs_6s: 6-source model"
+                )
+                
+                if st.button("🎵 Separate Vocals", type="primary", key="separate_upload"):
+                    try:
+                        # Save uploaded file temporarily with correct extension
+                        file_ext = os.path.splitext(uploaded_file.name)[1] or '.mp3'
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
+                            tmp_file.write(uploaded_file.getvalue())
+                            temp_path = tmp_file.name
+                        
+                        # Update model if needed
+                        if st.session_state.vocal_separator.model_name != model_choice:
+                            st.session_state.vocal_separator.model_name = model_choice
+                        
+                        with st.spinner("Separating vocals... This may take a few minutes."):
+                            result = st.session_state.vocal_separator.process_uploaded_file(temp_path)
+                        
+                        # Clean up temp file
+                        os.unlink(temp_path)
+                        
+                        if result.get('success', False):
+                            st.success("Vocal separation completed!")
+                            st.session_state.separated_vocals = result
+                            
+                            # Display results
+                            st.subheader("🎶 Separated Stems")
+                            
+                            stems = result['stems']
+                            stem_cols = st.columns(len(stems))
+                            
+                            for i, (stem_name, stem_path) in enumerate(stems.items()):
+                                with stem_cols[i % len(stem_cols)]:
+                                    st.write(f"**{stem_name.title()}**")
+                                    st.audio(stem_path)
+                                    
+                                    # Download button
+                                    with open(stem_path, 'rb') as f:
+                                        st.download_button(
+                                            label=f"📥 Download {stem_name.title()}",
+                                            data=f.read(),
+                                            file_name=f"{stem_name}_{uploaded_file.name}",
+                                            mime="audio/wav"
+                                        )
+                        else:
+                            st.error(f"Separation failed: {result.get('error', 'Unknown error')}")
+                            
+                    except Exception as e:
+                        st.error(f"Error during separation: {str(e)}")
+    
+    else:  # Download from URL
+        st.subheader("🌐 Download from URL")
+        
+        url = st.text_input(
+            "Enter URL (YouTube, SoundCloud, etc.):",
+            placeholder="https://www.youtube.com/watch?v=...",
+            key="url_input"
+        )
+        
+        if url:
+            if is_supported_url(url):
+                platform = get_platform_name(url)
+                st.success(f"✅ URL recognized as {platform}")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    model_choice = st.selectbox(
+                        "Demucs Model:",
+                        ["htdemucs", "htdemucs_ft", "htdemucs_6s"],
+                        help="htdemucs: Standard model, htdemucs_ft: Fine-tuned, htdemucs_6s: 6-source model",
+                        key="url_model"
+                    )
+                
+                with col2:
+                    st.info("**Note:** Please ensure you have permission to download and process the content for research/educational purposes.")
+                
+                if st.button("🎵 Download & Separate", type="primary", key="download_separate"):
+                    try:
+                        # Update model if needed
+                        if st.session_state.vocal_separator.model_name != model_choice:
+                            st.session_state.vocal_separator.model_name = model_choice
+                        
+                        # Progress tracking
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        status_text.text("📥 Downloading audio...")
+                        progress_bar.progress(25)
+                        
+                        with st.spinner("Processing... This may take several minutes."):
+                            result = st.session_state.vocal_separator.process_url(url)
+                        
+                        progress_bar.progress(100)
+                        
+                        if result.get('success', False):
+                            st.success("Download and separation completed!")
+                            st.session_state.separated_vocals = result
+                            
+                            # Display song info
+                            st.write(f"**Title:** {result.get('title', 'Unknown')}")
+                            st.write(f"**Duration:** {result.get('duration', 0):.1f} seconds")
+                            
+                            # Original audio
+                            st.subheader("🎵 Original Audio")
+                            if os.path.exists(result['original_file']):
+                                st.audio(result['original_file'])
+                            
+                            # Separated stems
+                            st.subheader("🎶 Separated Stems")
+                            
+                            stems = result['stems']
+                            stem_cols = st.columns(len(stems))
+                            
+                            for i, (stem_name, stem_path) in enumerate(stems.items()):
+                                with stem_cols[i % len(stem_cols)]:
+                                    st.write(f"**{stem_name.title()}**")
+                                    st.audio(stem_path)
+                                    
+                                    # Download button
+                                    with open(stem_path, 'rb') as f:
+                                        st.download_button(
+                                            label=f"📥 Download {stem_name.title()}",
+                                            data=f.read(),
+                                            file_name=f"{stem_name}_{result.get('title', 'audio')}.wav",
+                                            mime="audio/wav"
+                                        )
+                        else:
+                            error_msg = result.get('error', 'Unknown error')
+                            step = result.get('step', 'processing')
+                            st.error(f"Failed at {step} step: {error_msg}")
+                            
+                            if step == 'download':
+                                st.info("💡 Try a different URL or check if the content is available.")
+                            elif step == 'separation':
+                                st.info("💡 The audio was downloaded but separation failed. Try a different model or shorter audio.")
+                        
+                        progress_bar.empty()
+                        status_text.empty()
+                            
+                    except Exception as e:
+                        st.error(f"Error during processing: {str(e)}")
+                        
+            else:
+                st.warning("⚠️ URL not recognized or supported. Supported platforms: YouTube, SoundCloud, Bandcamp, Vimeo, etc.")
+        
+        # Information section
+        st.subheader("ℹ️ Supported Platforms")
+        st.markdown("""
+        - **YouTube** (youtube.com, youtu.be)
+        - **SoundCloud** (soundcloud.com)
+        - **Bandcamp** (bandcamp.com)
+        - **Vimeo** (vimeo.com)
+        - **Dailymotion** (dailymotion.com)
+        - And many more supported by yt-dlp
+        """)
+        
+        st.subheader("🤖 About the Models")
+        st.markdown("""
+        - **htdemucs**: Standard Demucs model, good balance of speed and quality
+        - **htdemucs_ft**: Fine-tuned version with improved performance
+        - **htdemucs_6s**: 6-source model (vocals, drums, bass, piano, guitar, other)
+        
+        **Note:** Processing time varies from 30 seconds to 5+ minutes depending on audio length and model complexity.
+        """)
+
 # Audio Processing Page
-if page == "Audio Processing":
+elif page == "Audio Processing":
     st.header("🎤 Audio Upload & Processing")
     
     col1, col2 = st.columns(2)

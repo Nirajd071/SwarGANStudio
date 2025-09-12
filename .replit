@@ -2,7 +2,7 @@ modules = ["python-3.11"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "libsndfile", "libxcrypt", "pkg-config", "qhull", "tcl", "tk", "xsimd"]
+packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "libsndfile", "libxcrypt", "pkg-config", "qhull", "tcl", "tk", "xsimd", "ffmpeg"]
 
 [deployment]
 deploymentTarget = "autoscale"
