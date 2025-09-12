@@ -138,16 +138,22 @@ if page == "Voice Separation":
                             for i, (stem_name, stem_path) in enumerate(stems.items()):
                                 with stem_cols[i % len(stem_cols)]:
                                     st.write(f"**{stem_name.title()}**")
-                                    st.audio(stem_path)
                                     
-                                    # Download button
-                                    with open(stem_path, 'rb') as f:
+                                    # Read audio data directly for playback
+                                    try:
+                                        with open(stem_path, 'rb') as f:
+                                            audio_data = f.read()
+                                        st.audio(audio_data, format='audio/wav')
+                                        
+                                        # Download button
                                         st.download_button(
                                             label=f"📥 Download {stem_name.title()}",
-                                            data=f.read(),
+                                            data=audio_data,
                                             file_name=f"{stem_name}_{uploaded_file.name}",
                                             mime="audio/wav"
                                         )
+                                    except Exception as e:
+                                        st.error(f"Could not load {stem_name} audio: {str(e)}")
                         else:
                             st.error(f"Separation failed: {result.get('error', 'Unknown error')}")
                             
@@ -210,7 +216,12 @@ if page == "Voice Separation":
                             # Original audio
                             st.subheader("🎵 Original Audio")
                             if os.path.exists(result['original_file']):
-                                st.audio(result['original_file'])
+                                try:
+                                    with open(result['original_file'], 'rb') as f:
+                                        original_audio_data = f.read()
+                                    st.audio(original_audio_data, format='audio/mp3')
+                                except Exception as e:
+                                    st.error(f"Could not load original audio: {str(e)}")
                             
                             # Separated stems
                             st.subheader("🎶 Separated Stems")
@@ -221,16 +232,22 @@ if page == "Voice Separation":
                             for i, (stem_name, stem_path) in enumerate(stems.items()):
                                 with stem_cols[i % len(stem_cols)]:
                                     st.write(f"**{stem_name.title()}**")
-                                    st.audio(stem_path)
                                     
-                                    # Download button
-                                    with open(stem_path, 'rb') as f:
+                                    # Read audio data directly for playback
+                                    try:
+                                        with open(stem_path, 'rb') as f:
+                                            audio_data = f.read()
+                                        st.audio(audio_data, format='audio/wav')
+                                        
+                                        # Download button
                                         st.download_button(
                                             label=f"📥 Download {stem_name.title()}",
-                                            data=f.read(),
+                                            data=audio_data,
                                             file_name=f"{stem_name}_{result.get('title', 'audio')}.wav",
                                             mime="audio/wav"
                                         )
+                                    except Exception as e:
+                                        st.error(f"Could not load {stem_name} audio: {str(e)}")
                         else:
                             error_msg = result.get('error', 'Unknown error')
                             step = result.get('step', 'processing')
