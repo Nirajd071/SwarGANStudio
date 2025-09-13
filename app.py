@@ -407,7 +407,7 @@ elif page == "Model Training":
     
     with col1:
         num_epochs = st.number_input("Number of Epochs", min_value=1, max_value=200, value=10)
-        batch_size = st.number_input("Batch Size", min_value=1, max_value=32, value=4)
+        batch_size = st.number_input("Batch Size", min_value=1, max_value=8, value=2)
     
     with col2:
         learning_rate = st.number_input("Learning Rate", min_value=0.0001, max_value=0.01, value=0.0001, format="%.4f")
@@ -453,10 +453,19 @@ elif page == "Model Training":
                     # Create trainer
                     trainer = create_trainer(model_type)
                     
-                    # Create dataset
+                    # Create dataset with memory-efficient settings
                     feature_extractor = FeatureExtractor()
-                    dataset = VoiceDataset(temp_files, feature_extractor)
-                    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+                    dataset = VoiceDataset(temp_files, feature_extractor, use_cache=False)  # Disable caching to save memory
+                    
+                    # Use smaller batch size to prevent memory issues
+                    effective_batch_size = min(batch_size, 2, len(temp_files))  # Max batch size of 2
+                    dataloader = torch.utils.data.DataLoader(
+                        dataset, 
+                        batch_size=effective_batch_size, 
+                        shuffle=True,
+                        num_workers=0,  # Use single thread to avoid memory issues
+                        pin_memory=False  # Disable pin memory to save RAM
+                    )
                     
                     # Training progress
                     progress_bar = st.progress(0)

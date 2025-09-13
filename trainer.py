@@ -16,10 +16,11 @@ from utils.audio_utils import load_audio
 class VoiceDataset(Dataset):
     """Dataset for voice conversion"""
     
-    def __init__(self, audio_files: List[str], feature_extractor: FeatureExtractor):
+    def __init__(self, audio_files: List[str], feature_extractor: FeatureExtractor, use_cache: bool = False):
         self.audio_files = audio_files
         self.feature_extractor = feature_extractor
-        self.features_cache = {}
+        self.use_cache = use_cache and len(audio_files) <= 3  # Only cache if very few files
+        self.features_cache = {} if self.use_cache else None
         
     def __len__(self):
         return len(self.audio_files)
@@ -27,28 +28,42 @@ class VoiceDataset(Dataset):
     def __getitem__(self, idx):
         audio_file = self.audio_files[idx]
         
-        # Check cache first
-        if audio_file in self.features_cache:
+        # Check cache first only if caching is enabled
+        if self.use_cache and self.features_cache and audio_file in self.features_cache:
             return self.features_cache[audio_file]
         
         # Load and process audio
         try:
             audio, _ = load_audio(audio_file)
+            
+            # Limit audio length to prevent memory issues (max 15 seconds)
+            max_samples = 15 * 22050  # 15 seconds at 22050 Hz
+            if len(audio) > max_samples:
+                audio = audio[:max_samples]
+            
             mel_spec = self.feature_extractor.extract_mel_spectrogram(audio)
+            
+            # Limit mel-spectrogram length to prevent memory issues
+            if mel_spec.shape[1] > 200:  # Max 200 frames
+                mel_spec = mel_spec[:, :200]
             
             # Convert to tensor
             mel_tensor = torch.from_numpy(mel_spec).float()
             
-            # Cache the result
-            self.features_cache[audio_file] = {
+            result = {
                 'mel_spec': mel_tensor,
                 'speaker_id': idx % 2,  # Simple speaker assignment for demo
                 'file_path': audio_file
             }
             
-            return self.features_cache[audio_file]
+            # Cache only if enabled and reasonable number of files
+            if self.use_cache and self.features_cache is not None:
+                self.features_cache[audio_file] = result
+                
+            return result
             
         except Exception as e:
+            print(f"Error loading {audio_file}: {str(e)}")
             # Return dummy data if loading fails
             dummy_mel = torch.zeros(config.N_MELS, 100)
             return {
@@ -83,6 +98,10 @@ class Trainer:
                 # Get batch data
                 mel_specs = batch['mel_spec'].to(self.device)
                 
+                # Memory management: clear cache if needed
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                
                 # For demonstration, use the same mel-spec as source and target
                 # In real training, you'd have pairs or use random sampling
                 outputs = self.model(mel_specs, mel_specs)
@@ -106,8 +125,14 @@ class Trainer:
                 total_content_loss += loss_dict['content_loss'].item()
                 num_batches += 1
                 
+                # Memory cleanup
+                del mel_specs, outputs, loss_dict, loss
+                
             except Exception as e:
                 print(f"Error in batch {batch_idx}: {str(e)}")
+                # Memory cleanup on error
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
                 continue
         
         if num_batches == 0:
