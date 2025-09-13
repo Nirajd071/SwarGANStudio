@@ -1,2 +1,7 @@
 checkpoints/
 checkpoints/
+# Ignore everything in checkpoints/
+checkpoints/*
+
+# But keep .pth files (Git LFS will handle them)
+!checkpoints/*.pth
