@@ -81,6 +81,27 @@ All modules log under the `swargan` namespace. Control verbosity with:
 export SWARGAN_LOG_LEVEL=DEBUG   # or INFO (default), WARNING, ...
 ```
 
+## Running the API service
+
+The conversion pipeline is also exposed as an async HTTP API (FastAPI):
+
+```bash
+pip install fastapi uvicorn python-multipart
+uvicorn service.app:create_app --factory --port 8000
+```
+
+Endpoints:
+- `GET /health` — liveness + available engines/voices
+- `GET /voices` — the offered (licensed) target voices
+- `POST /convert` — multipart upload (`file`, `voice_id`, optional `separate`, `engine`) → returns a job
+- `GET /jobs/{id}` — poll job status
+- `GET /jobs/{id}/result` — download the converted audio when ready
+
+The service enforces a **licensing guardrail**: conversion to a voice that is
+not marked `licensed` is rejected (HTTP 403) unless `allow_unlicensed` is set.
+The conversion backend is pluggable via `engine.ConversionEngine` (the default
+is the in-repo AutoVC engine; RVC/so-vits-svc backends can be added later).
+
 ## Known limitations
 
 - **No pretrained checkpoint is shipped.** Out of the box the model is randomly
