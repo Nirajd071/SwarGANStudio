@@ -39,73 +39,87 @@ class SimpleVocoder(nn.Module):
     
     def mel_to_linear(self, mel_spec: torch.Tensor) -> torch.Tensor:
         """
-        Convert mel-spectrogram to linear spectrogram
-        
+        Convert mel-spectrogram to a linear magnitude spectrogram.
+
+        The input mel is expected in dB scale (as produced by
+        librosa.power_to_db). We invert the dB -> power conversion, project
+        back to the linear frequency axis via the pseudo-inverse mel basis,
+        and finally take the square root to obtain a magnitude spectrogram
+        (Griffin-Lim operates on magnitudes, not power).
+
         Args:
             mel_spec: Mel-spectrogram (B, n_mels, T) or (n_mels, T)
-            
+
         Returns:
-            Linear spectrogram
+            Linear magnitude spectrogram (B, n_freq, T)
         """
         if mel_spec.dim() == 2:
             # Add batch dimension
             mel_spec = mel_spec.unsqueeze(0)
-        
-        # Convert from log to linear scale
-        linear_spec = torch.pow(10.0, mel_spec / 10.0)
-        
-        # Convert mel to linear spectrogram
-        linear_spec = torch.matmul(self.inv_mel_basis, linear_spec)
-        
-        return linear_spec
+
+        # Convert from dB (log) scale back to power
+        power_spec = torch.pow(10.0, mel_spec / 10.0)
+
+        # Project mel -> linear frequency axis (still in the power domain)
+        linear_power = torch.matmul(self.inv_mel_basis, power_spec)
+
+        # Power -> magnitude, guarding against tiny negative values
+        linear_mag = torch.sqrt(torch.clamp(linear_power, min=1e-10))
+
+        return linear_mag
     
     def griffin_lim(self, linear_spec: torch.Tensor, n_iter: int = 32) -> torch.Tensor:
         """
-        Griffin-Lim algorithm for phase reconstruction
-        
+        Griffin-Lim algorithm for phase reconstruction.
+
         Args:
-            linear_spec: Linear spectrogram (B, n_freq, T)
+            linear_spec: Linear magnitude spectrogram (B, n_freq, T)
             n_iter: Number of iterations
-            
+
         Returns:
-            Reconstructed waveform
+            Reconstructed waveform (B, L)
         """
+        window = torch.hann_window(self.win_length, device=linear_spec.device)
+
         # Initialize with random phase
         angles = torch.rand_like(linear_spec) * 2 * np.pi - np.pi
         complex_spec = linear_spec * torch.exp(1j * angles)
-        
+
         for _ in range(n_iter):
             # ISTFT
-            waveform = torch.istft(complex_spec, 
+            waveform = torch.istft(complex_spec,
                                   n_fft=self.n_fft,
                                   hop_length=self.hop_length,
                                   win_length=self.win_length,
+                                  window=window,
                                   center=True,
                                   normalized=False,
                                   return_complex=False)
-            
+
             # STFT
             complex_spec = torch.stft(waveform,
                                     n_fft=self.n_fft,
                                     hop_length=self.hop_length,
                                     win_length=self.win_length,
+                                    window=window,
                                     center=True,
                                     normalized=False,
                                     return_complex=True)
-            
-            # Replace magnitude with original
+
+            # Replace magnitude with the target magnitude
             angles = torch.angle(complex_spec)
             complex_spec = linear_spec * torch.exp(1j * angles)
-        
+
         # Final ISTFT
         waveform = torch.istft(complex_spec,
                               n_fft=self.n_fft,
                               hop_length=self.hop_length,
                               win_length=self.win_length,
+                              window=window,
                               center=True,
                               normalized=False,
                               return_complex=False)
-        
+
         return waveform
     
     def forward(self, mel_spec: torch.Tensor) -> torch.Tensor:

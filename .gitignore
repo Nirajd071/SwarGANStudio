@@ -1,7 +1,17 @@
-checkpoints/
-checkpoints/
 # Ignore everything in checkpoints/
 checkpoints/*
 
 # But keep .pth files (Git LFS will handle them)
 !checkpoints/*.pth
+
+# Local virtual environment
+.venv/
+.python-version
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Generated audio / caches
+audio_cache/*
+!audio_cache/.gitkeep

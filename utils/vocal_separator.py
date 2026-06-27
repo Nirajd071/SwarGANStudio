@@ -2,6 +2,7 @@
 Vocal separation utilities using Demucs for singing voice extraction
 """
 import os
+import sys
 import tempfile
 import shutil
 import subprocess
@@ -29,16 +30,17 @@ class VocalSeparator:
         self.device = config.DEVICE
         self.temp_dir = tempfile.mkdtemp(prefix="vocal_sep_")
         
-    def download_audio_from_url(self, url: str, output_path: str) -> bool:
+    def download_audio_from_url(self, url: str, output_path: str) -> Tuple[bool, Dict]:
         """
-        Download audio from various platforms using yt-dlp
-        
+        Download audio from various platforms using yt-dlp.
+
         Args:
             url: URL to download from (YouTube, etc.)
-            output_path: Path to save the downloaded audio
-            
+            output_path: Path (without extension) to save the downloaded audio
+
         Returns:
-            True if successful, False otherwise
+            Tuple of (success, info_dict). On success info_dict contains
+            'title', 'duration' and 'file'; on failure it contains 'error'.
         """
         try:
             # Check if ffmpeg is available
@@ -105,11 +107,13 @@ class VocalSeparator:
             # Create output directory if it doesn't exist
             os.makedirs(output_dir, exist_ok=True)
             
-            # Run Demucs separation
+            # Run Demucs separation. Use the current interpreter (sys.executable)
+            # rather than a bare "python", which may not be on PATH, and the
+            # modern flags ("-n" for model name, "-o" for output dir).
             cmd = [
-                'python', '-m', 'demucs.separate',
-                '--name', self.model_name,
-                '--out', output_dir,
+                sys.executable, '-m', 'demucs',
+                '-n', self.model_name,
+                '-o', output_dir,
                 input_path
             ]
             
