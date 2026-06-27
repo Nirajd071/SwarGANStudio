@@ -485,7 +485,7 @@ elif page == "Model Training":
                     for temp_file in temp_files:
                         try:
                             os.unlink(temp_file)
-                        except:
+                        except OSError:
                             pass
                     
                     # Update audio processor with new model
