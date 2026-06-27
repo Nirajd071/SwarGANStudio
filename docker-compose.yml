@@ -1,0 +1,18 @@
+# Local deployment skeleton for the SwarGAN Studio API.
+#
+# For GPU inference, add a `deploy.resources.reservations.devices` block
+# requesting an NVIDIA GPU and use a CUDA-based image in the Dockerfile.
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      SWARGAN_STORAGE_DIR: /data
+      SWARGAN_LOG_LEVEL: INFO
+    volumes:
+      - swargan_data:/data
+    restart: unless-stopped
+
+volumes:
+  swargan_data:

@@ -112,3 +112,19 @@ def test_convert_end_to_end(client):
 def test_result_not_ready_for_unknown_job(client):
     r = client.get("/jobs/doesnotexist/result")
     assert r.status_code == 404
+
+
+def test_convert_sync_returns_audio(client):
+    r = client.post("/convert/sync",
+                    files={"file": ("song.wav", _wav_bytes(), "audio/wav")},
+                    data={"voice_id": "demo"})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "audio/wav"
+    assert len(r.content) > 1000
+
+
+def test_convert_sync_enforces_licensing(client):
+    r = client.post("/convert/sync",
+                    files={"file": ("song.wav", _wav_bytes(), "audio/wav")},
+                    data={"voice_id": "unlicensed"})
+    assert r.status_code == 403

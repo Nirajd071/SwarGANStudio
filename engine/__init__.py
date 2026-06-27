@@ -8,6 +8,7 @@ diffusion backend can be dropped in later without touching the service layer.
 """
 from engine.base import ConversionEngine, VoiceProfile
 from engine.registry import VoiceRegistry, EngineRegistry, default_registries
+from engine.external_engine import ExternalCommandEngine
 
 __all__ = [
     "ConversionEngine",
@@ -15,4 +16,5 @@ __all__ = [
     "VoiceRegistry",
     "EngineRegistry",
     "default_registries",
+    "ExternalCommandEngine",
 ]

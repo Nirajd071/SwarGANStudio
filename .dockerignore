@@ -1,0 +1,12 @@
+.git
+.venv
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+datasets
+audio_cache
+checkpoints/*.pth
+attached_assets
+screenshot.png
+*.md
