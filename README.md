@@ -96,11 +96,22 @@ Endpoints:
 - `POST /convert` — multipart upload (`file`, `voice_id`, optional `separate`, `engine`) → returns a job
 - `GET /jobs/{id}` — poll job status
 - `GET /jobs/{id}/result` — download the converted audio when ready
+- `POST /convert/sync` — synchronous conversion (blocking) that returns the audio directly; for short clips
+
+Or run it in a container:
+
+```bash
+docker compose up --build   # serves on http://localhost:8000
+```
 
 The service enforces a **licensing guardrail**: conversion to a voice that is
 not marked `licensed` is rejected (HTTP 403) unless `allow_unlicensed` is set.
-The conversion backend is pluggable via `engine.ConversionEngine` (the default
-is the in-repo AutoVC engine; RVC/so-vits-svc backends can be added later).
+The conversion backend is pluggable via `engine.ConversionEngine` — the default
+is the in-repo AutoVC engine, and `engine.ExternalCommandEngine` wraps any CLI
+SVC tool (RVC / so-vits-svc / DDSP-SVC) without changing the service layer.
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system design,
+model direction, roadmap, and data/rights strategy.
 
 ## Known limitations
 

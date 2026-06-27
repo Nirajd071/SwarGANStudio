@@ -14,6 +14,7 @@ from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from starlette.concurrency import run_in_threadpool
 
 from engine.registry import VoiceRegistry, EngineRegistry, default_registries
 from service.config import ServiceSettings
@@ -54,14 +55,8 @@ def create_app(
         offered = voices.list() if settings.allow_unlicensed else voices.list_licensed()
         return VoiceListOut(voices=[VoiceOut(**v.to_public_dict()) for v in offered])
 
-    @app.post("/convert", response_model=JobOut, status_code=202)
-    async def convert(
-        file: UploadFile = File(...),
-        voice_id: str = Form(...),
-        separate: bool = Form(False),
-        engine: Optional[str] = Form(None),
-    ):
-        # --- validate the target voice + licensing -------------------------
+    def _resolve_voice_and_engine(voice_id: str, engine: Optional[str]):
+        """Validate the target voice (incl. licensing) and the engine."""
         voice = voices.get(voice_id)
         if voice is None:
             raise HTTPException(status_code=404, detail=f"Unknown voice: {voice_id}")
@@ -70,14 +65,14 @@ def create_app(
                 status_code=403,
                 detail=("Conversion to this voice is not permitted: we do not "
                         "hold a license for it."))
-
-        # --- validate the engine ------------------------------------------
         try:
             eng = engines.get(engine)
         except KeyError:
             raise HTTPException(status_code=400, detail=f"Unknown engine: {engine}")
+        return voice, eng
 
-        # --- validate + persist the upload --------------------------------
+    async def _read_and_store_upload(file: UploadFile) -> str:
+        """Validate upload size/emptiness and persist it; return the path."""
         data = await file.read()
         if not data:
             raise HTTPException(status_code=400, detail="Empty upload.")
@@ -87,9 +82,19 @@ def create_app(
                 status_code=413,
                 detail=f"Upload exceeds {settings.max_upload_mb} MB limit.")
         suffix = os.path.splitext(file.filename or "")[1] or ".wav"
-        input_path = storage.save_upload(data, suffix=suffix)
+        return storage.save_upload(data, suffix=suffix)
 
-        # --- create + dispatch the job ------------------------------------
+    @app.post("/convert", response_model=JobOut, status_code=202)
+    async def convert(
+        file: UploadFile = File(...),
+        voice_id: str = Form(...),
+        separate: bool = Form(False),
+        engine: Optional[str] = Form(None),
+    ):
+        """Submit an asynchronous conversion job (poll /jobs/{id})."""
+        voice, eng = _resolve_voice_and_engine(voice_id, engine)
+        input_path = await _read_and_store_upload(file)
+
         job = jobs.create(voice_id=voice_id, engine=eng.name, separate=separate)
         output_path = storage.result_path(job.id)
 
@@ -99,6 +104,36 @@ def create_app(
 
         jobs.submit(job, _task)
         return JobOut(**job.to_dict())
+
+    @app.post("/convert/sync")
+    async def convert_sync(
+        file: UploadFile = File(...),
+        voice_id: str = Form(...),
+        separate: bool = Form(False),
+        engine: Optional[str] = Form(None),
+    ):
+        """Convert synchronously and return the audio directly.
+
+        Convenient for short clips / simple clients that prefer a single
+        blocking call over the submit-and-poll job flow. Heavy/long jobs
+        should still use the asynchronous /convert endpoint.
+        """
+        voice, eng = _resolve_voice_and_engine(voice_id, engine)
+        input_path = await _read_and_store_upload(file)
+
+        import uuid
+        result_id = uuid.uuid4().hex
+        output_path = storage.result_path(result_id)
+        try:
+            # Conversion is CPU-bound; run it off the event loop.
+            await run_in_threadpool(
+                run_conversion, input_path, voice, eng, output_path, separate)
+        except Exception as e:  # noqa: BLE001
+            logger.exception("Synchronous conversion failed.")
+            raise HTTPException(status_code=500, detail=f"Conversion failed: {e}")
+
+        return FileResponse(output_path, media_type="audio/wav",
+                            filename=f"converted_{result_id}.wav")
 
     @app.get("/jobs/{job_id}", response_model=JobOut)
     def job_status(job_id: str):
