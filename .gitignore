@@ -12,6 +12,11 @@ checkpoints/*
 __pycache__/
 *.pyc
 
+# Packaging / build artifacts
+*.egg-info/
+build/
+dist/
+
 # Generated audio / caches
 audio_cache/*
 !audio_cache/.gitkeep

@@ -72,6 +72,9 @@ class ExternalCommandEngine(ConversionEngine):
                 "voice_id": voice.id,
                 "model": voice.metadata.get("model", ""),
             }
+            # Allow templates to reference arbitrary voice metadata, e.g.
+            # {config}, {speaker}, {index} for RVC / so-vits-svc backends.
+            mapping.update({k: str(v) for k, v in voice.metadata.items()})
             cmd = self._render(mapping)
             logger.info("Running external engine '%s': %s", self.name, " ".join(cmd))
 

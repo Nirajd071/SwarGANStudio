@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SwarGAN Studio</title>
+  <style>
+    :root { --bg:#0f1220; --card:#1a1f36; --accent:#6c8cff; --text:#e8ebf5; --muted:#9aa3c0; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .card {
+      background: var(--card); border-radius: 16px; padding: 32px;
+      width: 100%; max-width: 520px; box-shadow: 0 12px 40px rgba(0,0,0,.4);
+    }
+    h1 { margin: 0 0 4px; font-size: 24px; }
+    p.sub { margin: 0 0 24px; color: var(--muted); font-size: 14px; }
+    label { display: block; margin: 16px 0 6px; font-size: 14px; color: var(--muted); }
+    select, input[type=file] {
+      width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #2c3357;
+      background: #0f1430; color: var(--text); font-size: 14px;
+    }
+    .row { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+    button {
+      margin-top: 22px; width: 100%; padding: 12px; border: 0; border-radius: 10px;
+      background: var(--accent); color: white; font-size: 15px; font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .status { margin-top: 16px; font-size: 14px; min-height: 20px; }
+    .status.error { color: #ff8492; }
+    .status.ok { color: #7fd1a3; }
+    audio { width: 100%; margin-top: 18px; }
+    a.dl { display: inline-block; margin-top: 10px; color: var(--accent); font-size: 14px; }
+    .footer { margin-top: 22px; font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🎵 SwarGAN Studio</h1>
+    <p class="sub">Upload a clip, pick a licensed voice, and convert.</p>
+
+    <label for="voice">Target voice</label>
+    <select id="voice"><option value="">Loading voices…</option></select>
+
+    <label for="file">Audio file (wav / mp3 / flac / ogg)</label>
+    <input id="file" type="file" accept=".wav,.mp3,.flac,.ogg,.m4a" />
+
+    <div class="row">
+      <input id="separate" type="checkbox" />
+      <label for="separate" style="margin:0;color:var(--text);">Separate vocals first (needs Demucs)</label>
+    </div>
+
+    <button id="convert" disabled>Convert voice</button>
+
+    <div id="status" class="status"></div>
+    <audio id="player" controls style="display:none"></audio>
+    <a id="download" class="dl" style="display:none">⬇ Download converted audio</a>
+
+    <div class="footer">Conversion to unlicensed voices is rejected by the server.</div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const statusEl = $("status");
+
+    function setStatus(msg, kind) {
+      statusEl.textContent = msg || "";
+      statusEl.className = "status" + (kind ? " " + kind : "");
+    }
+
+    async function loadVoices() {
+      try {
+        const res = await fetch("/voices");
+        const data = await res.json();
+        const sel = $("voice");
+        sel.innerHTML = "";
+        if (!data.voices || data.voices.length === 0) {
+          sel.innerHTML = '<option value="">No licensed voices available</option>';
+          return;
+        }
+        for (const v of data.voices) {
+          const opt = document.createElement("option");
+          opt.value = v.id;
+          opt.textContent = v.name + (v.licensed ? " (licensed)" : "");
+          sel.appendChild(opt);
+        }
+        $("convert").disabled = false;
+      } catch (e) {
+        setStatus("Could not load voices: " + e, "error");
+      }
+    }
+
+    async function convert() {
+      const fileInput = $("file");
+      const voiceId = $("voice").value;
+      if (!fileInput.files.length) { setStatus("Please choose an audio file.", "error"); return; }
+      if (!voiceId) { setStatus("Please choose a voice.", "error"); return; }
+
+      const form = new FormData();
+      form.append("file", fileInput.files[0]);
+      form.append("voice_id", voiceId);
+      form.append("separate", $("separate").checked ? "true" : "false");
+
+      $("convert").disabled = true;
+      setStatus("Converting… this may take a moment.", null);
+      $("player").style.display = "none";
+      $("download").style.display = "none";
+
+      try {
+        const res = await fetch("/convert/sync", { method: "POST", body: form });
+        if (!res.ok) {
+          let detail = res.statusText;
+          try { detail = (await res.json()).detail || detail; } catch (_) {}
+          setStatus("Failed (" + res.status + "): " + detail, "error");
+          return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const player = $("player");
+        player.src = url; player.style.display = "block";
+        const dl = $("download");
+        dl.href = url; dl.download = "converted.wav"; dl.style.display = "inline-block";
+        setStatus("Done.", "ok");
+      } catch (e) {
+        setStatus("Error: " + e, "error");
+      } finally {
+        $("convert").disabled = false;
+      }
+    }
+
+    $("convert").addEventListener("click", convert);
+    loadVoices();
+  </script>
+</body>
+</html>

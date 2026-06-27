@@ -128,3 +128,15 @@ def test_convert_sync_enforces_licensing(client):
                     files={"file": ("song.wav", _wav_bytes(), "audio/wav")},
                     data={"voice_id": "unlicensed"})
     assert r.status_code == 403
+
+
+def test_ui_is_served(client):
+    r = client.get("/ui/")
+    assert r.status_code == 200
+    assert "SwarGAN Studio" in r.text
+
+
+def test_root_redirects_to_ui(client):
+    r = client.get("/", follow_redirects=False)
+    assert r.status_code in (302, 307)
+    assert r.headers["location"] == "/ui/"
