@@ -13,7 +13,8 @@ import os
 from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 
 from engine.registry import VoiceRegistry, EngineRegistry, default_registries
@@ -158,4 +159,14 @@ def create_app(
     app.state.engines = engines
     app.state.jobs = jobs
     app.state.storage = storage
+
+    # --- Web UI ------------------------------------------------------------
+    web_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web")
+    if os.path.isdir(web_dir):
+        app.mount("/ui", StaticFiles(directory=web_dir, html=True), name="ui")
+
+        @app.get("/", include_in_schema=False)
+        def root():
+            return RedirectResponse(url="/ui/")
+
     return app
