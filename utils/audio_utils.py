@@ -102,7 +102,7 @@ def load_audio(file_path: str, sr: int = config.SAMPLE_RATE) -> Tuple[np.ndarray
 def save_audio(audio: np.ndarray, file_path: str, sr: int = config.SAMPLE_RATE):
     """
     Save audio array to file
-    
+
     Args:
         audio: Audio data array
         file_path: Output file path
@@ -116,11 +116,11 @@ def save_audio(audio: np.ndarray, file_path: str, sr: int = config.SAMPLE_RATE):
 def trim_silence(audio: np.ndarray, top_db: int = 30) -> np.ndarray:
     """
     Trim silence from beginning and end of audio
-    
+
     Args:
         audio: Audio data array
         top_db: Threshold for silence detection
-        
+
     Returns:
         Trimmed audio array
     """
@@ -130,11 +130,11 @@ def trim_silence(audio: np.ndarray, top_db: int = 30) -> np.ndarray:
 def normalize_loudness(audio: np.ndarray, target_lufs: float = -23.0) -> np.ndarray:
     """
     Normalize audio loudness using RMS approximation
-    
+
     Args:
         audio: Audio data array
         target_lufs: Target loudness in LUFS
-        
+
     Returns:
         Normalized audio array
     """
@@ -153,12 +153,12 @@ def normalize_loudness(audio: np.ndarray, target_lufs: float = -23.0) -> np.ndar
 def split_audio_frames(audio: np.ndarray, frame_length: int, hop_length: int) -> list:
     """
     Split audio into overlapping frames
-    
+
     Args:
         audio: Audio data array
         frame_length: Length of each frame
         hop_length: Hop length between frames
-        
+
     Returns:
         List of audio frames
     """
@@ -171,10 +171,10 @@ def split_audio_frames(audio: np.ndarray, frame_length: int, hop_length: int) ->
 def audio_to_tensor(audio: np.ndarray) -> torch.Tensor:
     """
     Convert numpy audio array to PyTorch tensor
-    
+
     Args:
         audio: Audio data array
-        
+
     Returns:
         PyTorch tensor
     """
@@ -183,10 +183,10 @@ def audio_to_tensor(audio: np.ndarray) -> torch.Tensor:
 def tensor_to_audio(tensor: torch.Tensor) -> np.ndarray:
     """
     Convert PyTorch tensor to numpy audio array
-    
+
     Args:
         tensor: PyTorch tensor
-        
+
     Returns:
         Audio data array
     """

@@ -21,6 +21,38 @@ dependencies = [
     "yt-dlp>=2025.9.5",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+swargan-data = "data_pipeline.cli:main"
+swargan-serve = "service.run:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["app", "audio_processor", "config", "trainer", "create_test_audio"]
+packages = ["models", "utils", "data_pipeline", "engine", "service"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [".venv", "attached_assets", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/*" = ["F401", "E402"]
+
 [[tool.uv.index]]
 explicit = true
 name = "pytorch-cpu"

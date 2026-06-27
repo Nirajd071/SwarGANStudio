@@ -35,5 +35,5 @@ os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 os.makedirs(AUDIO_CACHE_DIR, exist_ok=True)
 
 # Device configuration
-import torch
+import torch  # noqa: E402
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

@@ -14,8 +14,8 @@ class FeatureExtractor:
     """
     Feature extractor for singing voice analysis
     """
-    
-    def __init__(self, 
+
+    def __init__(self,
                  sr: int = config.SAMPLE_RATE,
                  n_mels: int = config.N_MELS,
                  hop_length: int = config.HOP_LENGTH,
@@ -26,7 +26,7 @@ class FeatureExtractor:
         self.hop_length = hop_length
         self.win_length = win_length
         self.n_fft = n_fft
-        
+
     def _sanitize(self, audio: np.ndarray) -> np.ndarray:
         """Coerce input to a finite 1-D float64 array, padded to at least one
         FFT window so downstream librosa/pyworld calls never fail on short clips.
@@ -46,10 +46,10 @@ class FeatureExtractor:
     def extract_mel_spectrogram(self, audio: np.ndarray) -> np.ndarray:
         """
         Extract mel-spectrogram from audio
-        
+
         Args:
             audio: Audio data array
-            
+
         Returns:
             Mel-spectrogram array (n_mels, n_frames)
         """
@@ -65,12 +65,12 @@ class FeatureExtractor:
             fmin=config.F_MIN,
             fmax=config.F_MAX
         )
-        
+
         # Convert to log scale
         log_mel_spec = librosa.power_to_db(mel_spec, ref=np.max)
-        
+
         return log_mel_spec
-    
+
     def extract_f0_pyworld(self, audio: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Extract F0 (pitch) using PyWorld.
@@ -105,15 +105,15 @@ class FeatureExtractor:
         log_f0[voiced_flag] = np.log(f0_linear[voiced_flag])
 
         return log_f0, voiced_flag, f0_linear, time_axis, audio_double
-    
+
     def extract_spectral_envelope(self, audio: np.ndarray, f0: np.ndarray) -> np.ndarray:
         """
         Extract spectral envelope using WORLD
-        
+
         Args:
             audio: Audio data array
             f0: F0 contour
-            
+
         Returns:
             Spectral envelope
         """
@@ -123,20 +123,20 @@ class FeatureExtractor:
 
         # Time axis for WORLD
         time_axis = np.arange(len(f0)) * self.hop_length / self.sr
-        
+
         # Extract spectral envelope
         sp = pw.cheaptrick(audio_double, f0, time_axis, self.sr)
-        
+
         return sp
-    
+
     def extract_aperiodicity(self, audio: np.ndarray, f0: np.ndarray) -> np.ndarray:
         """
         Extract aperiodicity using WORLD
-        
+
         Args:
             audio: Audio data array
             f0: F0 contour
-            
+
         Returns:
             Aperiodicity
         """
@@ -146,23 +146,23 @@ class FeatureExtractor:
 
         # Time axis for WORLD
         time_axis = np.arange(len(f0)) * self.hop_length / self.sr
-        
+
         # Extract aperiodicity
         ap = pw.d4c(audio_double, f0, time_axis, self.sr)
-        
+
         return ap
-    
-    def normalize_features(self, features: np.ndarray, 
+
+    def normalize_features(self, features: np.ndarray,
                           mean: Optional[np.ndarray] = None,
                           std: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Normalize features to zero mean and unit variance
-        
+
         Args:
             features: Feature array
             mean: Pre-computed mean (optional)
             std: Pre-computed std (optional)
-            
+
         Returns:
             Tuple of (normalized_features, mean, std)
         """
@@ -172,25 +172,25 @@ class FeatureExtractor:
             std = np.std(features, axis=-1, keepdims=True)
             # Prevent division by zero
             std = np.where(std == 0, 1.0, std)
-        
+
         normalized = (features - mean) / std
         return normalized, mean, std
-    
+
     def denormalize_features(self, normalized_features: np.ndarray,
                            mean: np.ndarray, std: np.ndarray) -> np.ndarray:
         """
         Denormalize features
-        
+
         Args:
             normalized_features: Normalized feature array
             mean: Mean used for normalization
             std: Std used for normalization
-            
+
         Returns:
             Denormalized features
         """
         return normalized_features * std + mean
-    
+
     def extract_all_features(self, audio: np.ndarray) -> dict:
         """
         Extract all features from audio.
