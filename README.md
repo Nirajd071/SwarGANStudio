@@ -109,6 +109,7 @@ not marked `licensed` is rejected (HTTP 403) unless `allow_unlicensed` is set.
 The conversion backend is pluggable via `engine.ConversionEngine` — the default
 is the in-repo AutoVC engine, and `engine.ExternalCommandEngine` wraps any CLI
 SVC tool (RVC / so-vits-svc / DDSP-SVC) without changing the service layer.
+See [`docs/SVC_BACKENDS.md`](docs/SVC_BACKENDS.md) for wiring in a real backend.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system design,
 model direction, roadmap, and data/rights strategy.
