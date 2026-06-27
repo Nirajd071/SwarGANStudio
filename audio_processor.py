@@ -13,10 +13,13 @@ import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 
 from utils.feature_extractor import FeatureExtractor
-from utils.audio_utils import load_audio, save_audio, trim_silence, normalize_loudness
+from utils.audio_utils import load_audio, save_audio, trim_silence, normalize_loudness, validate_audio
+from utils.logging_config import get_logger
 from models.autovc import AutoVC
 from models.vocoder import create_vocoder
 import config
+
+logger = get_logger(__name__)
 
 class AudioProcessor:
     """Main audio processor for the application"""
@@ -150,33 +153,48 @@ class AudioProcessor:
         """
         if self.model is None:
             raise ValueError("Model not loaded. Please train the model first.")
-        
+
         try:
+            # Validate / sanitize source audio for real-world edge cases
+            source_audio = validate_audio(source_audio, source="source_audio")
+
+            logger.info("Voice conversion started (%.2fs source).",
+                        len(source_audio) / config.SAMPLE_RATE)
+
             # Extract source features
             source_mel = self.feature_extractor.extract_mel_spectrogram(source_audio)
             source_mel_tensor = torch.from_numpy(source_mel).float().unsqueeze(0).to(self.device)
-            
+
             # Prepare target features
             if target_features is not None and 'mel_spec' in target_features:
                 target_mel_tensor = torch.from_numpy(target_features['mel_spec']).float().unsqueeze(0).to(self.device)
+                logger.info("Using target speaker embedding for conversion.")
             else:
                 target_mel_tensor = None
-            
+                logger.info("No target provided; using source speaker embedding (reconstruction).")
+
             # Perform conversion
+            self.model.eval()
             with torch.no_grad():
                 outputs = self.model(source_mel_tensor, target_mel_tensor)
-                converted_mel = outputs['converted']
-            
+                # Use the postnet-refined output for better audio quality
+                converted_mel = outputs['converted_postnet']
+
             # Convert mel-spectrogram back to audio using vocoder
-            converted_audio = self.vocoder(converted_mel)
-            
+            with torch.no_grad():
+                converted_audio = self.vocoder(converted_mel)
+
             # Convert to numpy
             if isinstance(converted_audio, torch.Tensor):
                 converted_audio = converted_audio.squeeze().cpu().numpy()
-            
+
+            logger.info("Voice conversion finished (%d samples).", converted_audio.shape[-1])
             return converted_audio
-            
+
+        except ValueError:
+            raise
         except Exception as e:
+            logger.exception("Voice conversion failed.")
             raise ValueError(f"Error during voice conversion: {str(e)}")
     
     def save_converted_audio(self, audio: np.ndarray, 

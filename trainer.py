@@ -12,6 +12,9 @@ import config
 from models.autovc import AutoVC, AutoVCLoss
 from utils.feature_extractor import FeatureExtractor
 from utils.audio_utils import load_audio
+from utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 class VoiceDataset(Dataset):
     """Dataset for voice conversion"""
@@ -204,6 +207,7 @@ class Trainer:
         history = {'train_loss': [], 'val_loss': []}
         
         for epoch in range(num_epochs):
+            logger.info("Epoch %d/%d", epoch + 1, num_epochs)
             print(f"Epoch {epoch + 1}/{num_epochs}")
             
             # Training
@@ -211,6 +215,9 @@ class Trainer:
             self.train_losses.append(train_metrics['total_loss'])
             history['train_loss'].append(train_metrics['total_loss'])
             
+            logger.info("Train loss=%.4f rec=%.4f content=%.4f",
+                        train_metrics['total_loss'], train_metrics['rec_loss'],
+                        train_metrics['content_loss'])
             print(f"Train Loss: {train_metrics['total_loss']:.4f}, "
                   f"Rec Loss: {train_metrics['rec_loss']:.4f}, "
                   f"Content Loss: {train_metrics['content_loss']:.4f}")
